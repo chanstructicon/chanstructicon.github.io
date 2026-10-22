@@ -1,0 +1,1 @@
+window.ChanData.register("data/networks.json", JSON.parse("[{\"id\":\"main\",\"title\":\"main_constructicon\",\"description\":\"Morphological families\",\"graph\":\"graphs/main.json\"},{\"id\":\"nword\",\"title\":\"N-WORD NETWORK\",\"description\":\"Schemas, processes and semantic groups\",\"graph\":\"graphs/nword.json\"}]"));

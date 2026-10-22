@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>A parent node connected to two children</title>
+  <g stroke="#11110f" stroke-width="2" stroke-linecap="round">
+    <path d="M16 8 7 25M16 8 25 25" fill="none"/>
+    <circle cx="16" cy="8" r="6" fill="#718bff"/>
+    <circle cx="7" cy="25" r="4" fill="#ff7aa5"/>
+    <circle cx="25" cy="25" r="4" fill="#d8ff3e"/>
+  </g>
+</svg>
