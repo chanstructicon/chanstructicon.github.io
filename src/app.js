@@ -1,6 +1,9 @@
 const root = document.body.dataset.root;
 const isHome = document.body.dataset.network === "main";
-const networkId = isHome ? "main" : (new URLSearchParams(location.search).get("id") || "nword");
+const language = document.body.dataset.language || "en";
+const networkId = isHome ? (language === "pt" ? "pt-main" : "main") : (new URLSearchParams(location.search).get("id") || "nword");
+const WORK_IN_PROGRESS = "Work in progress — the Portuguese corpus is not available yet. You can explore the network and search the word list; original comments will be added later.";
+let corpusAvailable = false;
 const searchInput = document.querySelector("#term-search");
 const searchResults = document.querySelector("#search-results");
 const dataStatus = document.querySelector("#data-status");
@@ -86,6 +89,7 @@ function highlight(text, terms) {
 }
 
 async function appendPosts(version) {
+  if (!corpusAvailable) return;
   morePosts.disabled = true;
   const batch = postRefs.slice(postOffset, postOffset + POST_PAGE_SIZE);
   const terms = selectedTerms;
@@ -133,7 +137,7 @@ async function showComments(label, terms, nodeId) {
   postOffset = 0;
   commentContent.replaceChildren();
   document.querySelector("#selected-word").textContent = label;
-  postStatus.textContent = "Loading matching posts...";
+  postStatus.textContent = corpusAvailable ? "Loading matching posts..." : WORK_IN_PROGRESS;
   morePosts.hidden = true;
   morePosts.textContent = "MORE POSTS";
   graph.select(nodeId);
@@ -151,6 +155,7 @@ async function showComments(label, terms, nodeId) {
       contextPanel.scrollIntoView({ block: "start", behavior: "instant" });
     }
   }
+  if (!corpusAvailable) return;
   try {
     const shards = [...new Set(terms.map(term => catalog.terms[term]?.shard).filter(shard => shard !== undefined))];
     const indexes = new Map(await Promise.all(shards.map(async shard => [shard, await json(`data/index/${shard}.json`)])));
@@ -204,15 +209,17 @@ async function initialize() {
   try {
     const networks = await json("data/networks.json");
     const navigation = document.querySelector("#network-links");
-    for (const network of networks) {
+    for (const network of networks.filter(item => (item.language || "en") === language)) {
       const link = document.createElement("a");
-      link.href = network.id === "main" ? `${root}/index.html` : `${root}/networks/index.html?id=${encodeURIComponent(network.id)}`;
-      link.textContent = network.id === "main" ? "main network" : network.title.replaceAll("_", " ");
+      link.href = network.id === "main" ? `${root}/en/index.html` : network.id === "pt-main"
+        ? `${root}/pt/index.html` : `${root}/networks/index.html?id=${encodeURIComponent(network.id)}`;
+      link.textContent = ["main", "pt-main"].includes(network.id) ? "main network" : network.title.replaceAll("_", " ");
       if (network.id === networkId) link.setAttribute("aria-current", "page");
       navigation.insertBefore(link, navigation.querySelector('[data-about-link]'));
     }
     const network = networks.find(item => item.id === networkId);
-    if (!network) throw new Error("This network does not exist. Choose one of the networks above.");
+    if (!network || (network.language || "en") !== language) throw new Error("This network does not exist. Choose one of the networks above.");
+    corpusAvailable = network.corpusAvailable !== false;
     document.querySelector("#network-title").textContent = network.title;
     const description = document.querySelector("#network-description");
     if (description) description.textContent = network.description;
@@ -231,10 +238,12 @@ async function initialize() {
       }
     );
     document.querySelector("#graph-status").textContent = `${graphData.nodes.length.toLocaleString("en")} nodes · ${graphData.edges.length.toLocaleString("en")} connections`;
-    catalog = await json("data/catalog.json");
-    vocabulary = [...new Set(isHome ? catalog.searchTerms : graphData.nodes
+    catalog = corpusAvailable ? await json("data/catalog.json") : null;
+    const wordList = isHome ? (catalog?.searchTerms ?? graphData.searchTerms) : null;
+    vocabulary = [...new Set(wordList ?? graphData.nodes
       .filter(node => ["word", "neo", "center"].includes(node.type))
-      .map(node => node.label.toLowerCase()))].sort((a, b) => a.localeCompare(b, "en"));
+      .map(node => node.label.toLowerCase()))].sort((a, b) => a.localeCompare(b, language));
+    if (!corpusAvailable) postStatus.textContent = WORK_IN_PROGRESS;
     if (graphData.provisional) {
       const note = document.querySelector("#data-note");
       note.hidden = false;
@@ -270,7 +279,7 @@ clearSelectionButton?.addEventListener("click", () => {
   morePosts.hidden = true;
   document.querySelector("#selected-word").textContent = "No word selected";
   document.querySelector("#selection-path").textContent = "";
-  postStatus.textContent = "Choose a node or a search result to read its original posts here.";
+  postStatus.textContent = corpusAvailable ? "Choose a node or a search result to read its original posts here." : WORK_IN_PROGRESS;
   graph?.select(null);
   contextPanel.querySelector(".post-body").scrollTop = 0;
   clearSelectionButton.disabled = true;

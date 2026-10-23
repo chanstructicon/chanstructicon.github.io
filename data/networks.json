@@ -1,14 +1,24 @@
 [
   {
     "id": "main",
+    "language": "en",
     "title": "main_constructicon",
     "description": "Morphological families",
     "graph": "graphs/main.json"
   },
   {
     "id": "nword",
+    "language": "en",
     "title": "N-WORD NETWORK",
     "description": "Schemas, processes and semantic groups",
     "graph": "graphs/nword.json"
+  },
+  {
+    "id": "pt-main",
+    "language": "pt",
+    "title": "portuguese_constructicon",
+    "description": "Portuguese · morphological families",
+    "graph": "graphs/pt-main.json",
+    "corpusAvailable": false
   }
 ]
