@@ -288,14 +288,16 @@ mark { background: var(--acid); color: var(--ink); }
 .about-content {
   flex: 1;
   width: 100%;
-  margin: 0;
-  padding: 1rem 1.25rem 1.25rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 3vw, 3rem);
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   align-content: start;
-  gap: 1rem;
+  align-items: start;
+  gap: clamp(1.25rem, 2.5vw, 2.5rem);
 }
-.about-block { min-width: 0; display: flex; flex-direction: column; border: var(--line); background: #fff; box-shadow: 7px 7px 0 var(--ink); }
+.about-block { grid-column: span 5; min-width: 0; display: flex; flex-direction: column; border: var(--line); background: #fff; box-shadow: 7px 7px 0 var(--ink); }
 .about-block .block-label { flex-shrink: 0; }
 .about-block h2 { font-size: clamp(.8rem, 1vw, 1rem); }
 .about-copy { padding: clamp(.8rem, 1.4vw, 1.5rem); font-size: clamp(.8rem, 1vw, 1rem); line-height: 1.55; overflow-wrap: anywhere; }
@@ -304,30 +306,22 @@ mark { background: var(--acid); color: var(--ink); }
 .about-return { display: inline-block; padding: .55rem .65rem; border: var(--line); background: var(--acid); font-size: .75rem; font-weight: 900; text-decoration: none; }
 .about-return:hover, .about-return:focus-visible { background: var(--ink); color: var(--acid); }
 .about-copy code { padding: .1rem .25rem; background: var(--paper); font: inherit; font-weight: bold; }
-.about-reference { font-size: .85em; }
-@media (min-width: 900px) and (min-height: 600px) {
-  .about-page {
-    height: 100dvh;
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
-  }
-  .about-content {
-    min-height: 0;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    align-content: stretch;
-  }
-  .about-block { min-height: 0; }
-}
-@media (min-width: 900px) and (max-height: 700px) {
-  .about-content { padding: .75rem 1rem 1rem; gap: .75rem; }
-  .about-block .block-label { min-height: 2rem; padding: .4rem .6rem; }
-  .about-copy { padding: .6rem; font-size: .75rem; line-height: 1.4; }
-  .about-copy p { margin-bottom: .5rem; }
-  .about-return { padding: .4rem .5rem; font-size: .7rem; }
-}
+/* Unequal widths and natural heights give the notes a looser rhythm. */
+.about-overview, .about-block:nth-child(4), .about-block:nth-child(5) { grid-column: span 7; }
+.about-overview .about-copy { font-size: clamp(1rem, 1.4vw, 1.25rem); padding: clamp(1.25rem, 2.5vw, 2.5rem); }
+.about-block:nth-child(2), .about-data { margin-top: 1.5rem; }
+.about-contact { grid-column: 1 / -1; background: var(--acid); box-shadow: 10px 10px 0 var(--ink); }
+.about-contact .block-label { background: var(--ink); color: var(--acid); padding: 1rem 1.25rem; }
+.about-contact h2 { font-size: 1.25rem; }
+.about-contact .about-copy { padding: clamp(1.25rem, 3vw, 2.5rem); }
+.contact-email { font-size: clamp(1.15rem, 3.2vw, 2.5rem); font-weight: 900; letter-spacing: -.04em; }
+.about-contact a { color: var(--ink); text-underline-offset: .18em; }
+.contact-profiles { display: flex; flex-wrap: wrap; gap: .75rem; }
+.contact-profiles a { display: inline-block; border: var(--line); padding: .65rem 1rem; background: #fff; font-weight: 700; text-decoration: none; }
+.contact-profiles a:hover, .contact-profiles a:focus-visible { background: var(--ink); color: var(--acid); }
 @media (max-width: 720px) {
   .about-content { grid-template-columns: minmax(0, 1fr); }
+  .about-content > .about-block { grid-column: 1; margin-top: 0; }
   .about-copy { font-size: .9rem; }
 }
 
