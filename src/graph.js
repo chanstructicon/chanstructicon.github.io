@@ -6,8 +6,20 @@ class ConstructiconGraph {
     this.display = data.display || { labels: data.hulls ? "all" : "families", fontSize: 14, motionAmplitude: 3, labelGap: 5 };
     this.nodes = data.nodes.map((node, index) => ({ ...node, phase: index * 2.399, dx: 0, dy: 0 }));
     this.byId = new Map(this.nodes.map(node => [node.id, node]));
-    this.edges = data.edges.map(edge => [this.byId.get(edge.source), this.byId.get(edge.target)])
-      .filter(pair => pair.every(Boolean));
+    this.edges = [];
+    const edgeGroups = new Map();
+    for (const edge of data.edges) {
+      const pair = [this.byId.get(edge.source), this.byId.get(edge.target)];
+      if (!pair.every(Boolean)) continue;
+      this.edges.push(pair);
+      const kind = edge.kind || "default";
+      const color = kind === "primary" ? pair.find(node => node.type === "base")?.color : "#64748b";
+      const key = `${kind}:${color}`;
+      if (!edgeGroups.has(key)) edgeGroups.set(key, { kind, color, edges: [] });
+      edgeGroups.get(key).edges.push(pair);
+    }
+    this.edgeGroups = [...edgeGroups.values()];
+    this.familyRegions = data.familyRegions || [];
     this.parentEdges = this.buildParentIndex();
     this.childEdges = this.buildChildIndex();
     this.highlightedNodes = new Set();
@@ -66,6 +78,10 @@ class ConstructiconGraph {
         bottom: node.y + node.r + margin,
       };
     });
+    for (const region of this.familyRegions || []) {
+      bounds.push({ left: region.x - region.r, right: region.x + region.r,
+        top: region.y - region.r, bottom: region.y + region.r });
+    }
     const minX = Math.min(...bounds.map(b => b.left)), maxX = Math.max(...bounds.map(b => b.right));
     const minY = Math.min(...bounds.map(b => b.top)), maxY = Math.max(...bounds.map(b => b.bottom));
     this.fitScale = Math.min(
@@ -82,7 +98,7 @@ class ConstructiconGraph {
   }
 
   zoom(factor, x = this.width / 2, y = this.height / 2) {
-    const next = Math.max(this.fitScale * .5, Math.min(this.fitScale * 25, this.camera.scale * factor));
+    const next = Math.max(this.fitScale * .5, Math.min(this.fitScale * (this.display.maxZoomFactor ?? 25), this.camera.scale * factor));
     const ratio = next / this.camera.scale;
     this.camera.x = x - (x - this.camera.x) * ratio;
     this.camera.y = y - (y - this.camera.y) * ratio;
@@ -239,7 +255,7 @@ class ConstructiconGraph {
   tick(time) {
     this.frame = null;
     if (document.hidden || !this.visible || this.paused) return;
-    if (!this.lastDraw || time - this.lastDraw > 32) {
+    if (!this.lastDraw || time - this.lastDraw > (this.display.motionFrameInterval ?? 32)) {
       this.draw(time);
       this.lastDraw = time;
     }
@@ -253,10 +269,11 @@ class ConstructiconGraph {
     ctx.clearRect(0, 0, this.width, this.height);
     ctx.translate(x, y);
     ctx.scale(scale, scale);
+    const motionTime = time * (this.display.motionSpeed ?? 1);
     for (const node of this.nodes) {
-      const amplitude = this.paused ? 0 : (node.motionAmplitude ?? this.display.motionAmplitude);
-      node.dx = Math.sin(time * .0026 + node.phase) * amplitude;
-      node.dy = Math.cos(time * .0021 + node.phase) * amplitude;
+      const amplitude = this.paused ? 0 : (node.motionAmplitude ?? this.display.motionAmplitude) * (this.display.motionAmplitudeScale ?? 1);
+      node.dx = Math.sin(motionTime * .0026 + node.phase) * amplitude;
+      node.dy = Math.cos(motionTime * .0021 + node.phase) * amplitude;
     }
     for (const hull of this.hulls) {
       if (!hull.points?.length) continue;
@@ -267,15 +284,31 @@ class ConstructiconGraph {
       ctx.fillStyle = hull.fill;
       ctx.fill();
     }
-    ctx.globalAlpha = (this.display.edgeAlpha ?? .17) * (this.selected ? .45 : 1);
-    ctx.strokeStyle = "#383838";
-    ctx.lineWidth = this.display.edgeWidth ?? .65 / scale;
-    ctx.beginPath();
-    for (const [a, b] of this.edges) {
-      ctx.moveTo(a.x + a.dx, a.y + a.dy);
-      ctx.lineTo(b.x + b.dx, b.y + b.dy);
+    for (const region of this.familyRegions || []) {
+      ctx.beginPath();
+      ctx.arc(region.x, region.y, region.r, 0, Math.PI * 2);
+      ctx.fillStyle = region.color;
+      ctx.globalAlpha = .04;
+      ctx.fill();
+      ctx.strokeStyle = region.color;
+      ctx.globalAlpha = this.selected && !this.highlightedNodes.has(region.id) ? .2 : .55;
+      ctx.lineWidth = .65;
+      ctx.stroke();
     }
-    ctx.stroke();
+    for (const group of this.edgeGroups || [{ kind: "default", edges: this.edges }]) {
+      const secondary = group.kind === "secondary";
+      ctx.globalAlpha = (secondary ? (this.display.secondaryEdgeAlpha ?? .15) : (this.display.edgeAlpha ?? .17)) * (this.selected ? .45 : 1);
+      ctx.strokeStyle = group.kind === "default" ? "#383838" : group.color;
+      ctx.lineWidth = secondary ? (this.display.secondaryEdgeWidth ?? .45) : (this.display.edgeWidth ?? .65 / scale);
+      ctx.setLineDash(secondary ? [3, 3] : []);
+      ctx.beginPath();
+      for (const [a, b] of group.edges) {
+        ctx.moveTo(a.x + a.dx, a.y + a.dy);
+        ctx.lineTo(b.x + b.dx, b.y + b.dy);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
     // Draw selected ancestry and descendants above the subdued background edges.
     if (this.highlightedEdges.size) {
       ctx.globalAlpha = 1;
@@ -293,7 +326,8 @@ class ConstructiconGraph {
     for (const node of this.nodes) {
       const px = (node.x + node.dx) * scale + x;
       const py = (node.y + node.dy) * scale + y;
-      if (px < -50 || px > this.width + 50 || py < -50 || py > this.height + 50) continue;
+      const padding = Math.max(50, node.r * scale);
+      if (px < -padding || px > this.width + padding || py < -padding || py > this.height + padding) continue;
       visible.push(node);
       const related = this.highlightedNodes.has(node.id);
       ctx.globalAlpha = related ? 1 : ["base", "center"].includes(node.type)
@@ -323,11 +357,11 @@ class ConstructiconGraph {
       if (!persistent && !active &&
           (scale < this.fitScale * 4 || labels > 250)) continue;
       const centered = persistent && this.display.labelPosition === "center";
-      const fontSize = centered
+      const fontSize = centered && this.display.fitLabelsToNodes !== false
         ? Math.min(this.display.fontSize, node.r * 1.8 / (node.label.length * .61))
         : persistent ? this.display.fontSize : 11 / scale;
       ctx.textBaseline = centered ? "middle" : "alphabetic";
-      ctx.font = `${this.display.labelWeight || (important ? "bold" : "normal")} ${fontSize}px "Courier New", monospace`;
+      ctx.font = `${this.display.labelWeight || (important ? "bold" : "normal")} ${fontSize}px ${this.display.fontFamily || '"Courier New", monospace'}`;
       const width = ctx.measureText(node.label).width * scale;
       const labelX = (node.x + node.dx) * scale + x;
       const textY = node.y + node.dy - (centered ? 0 : node.r + this.display.labelGap);
@@ -336,6 +370,11 @@ class ConstructiconGraph {
       if (!persistent && !active && labelBoxes.some(other => box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top)) continue;
       labelBoxes.push(box);
       ctx.fillStyle = this.highlightedNodes.has(node.id) && node !== this.selected ? "#243bb0" : "#111";
+      if (this.display.labelHalo) {
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2 / scale;
+        ctx.strokeText(node.label, node.x + node.dx, textY);
+      }
       ctx.fillText(node.label, node.x + node.dx, textY);
       labels++;
     }

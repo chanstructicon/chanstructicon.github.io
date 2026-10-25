@@ -225,6 +225,9 @@ async function initialize() {
     if (description) description.textContent = network.description;
     if (!isHome) document.title = `${network.title.replaceAll("_", " ")} — the CHAN-structicon`;
     graphData = await json(`data/${network.graph}`);
+    if (graphData.primaryParentRule) {
+      document.querySelector("#graph-help").textContent = "words sit with their heads · dashed links connect to modifiers · click to explore · drag to pan · scroll to zoom";
+    }
     buildNodeTerms(graphData);
     graph = new window.ConstructiconGraph(
       document.querySelector("#network-canvas"),

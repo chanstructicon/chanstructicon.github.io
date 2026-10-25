@@ -1,6 +1,9 @@
 /* JSON over HTTP; generated data scripts when the HTML is opened locally. */
 (() => {
   const pending = new Map();
+  // Keep JSON and file:// wrappers in step with the HTML's script release.
+  // Otherwise an older cached registry can hide newly introduced networks.
+  const version = new URL(document.currentScript.src).searchParams.get("v");
 
   function register(path, value) {
     const request = pending.get(path);
@@ -12,6 +15,7 @@
 
   async function load(path, root) {
     const url = new URL(`${root}/${path}`, document.baseURI);
+    if (version) url.searchParams.set("v", version);
     if (location.protocol !== "file:") {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Could not load ${path} (${response.status}).`);
