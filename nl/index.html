@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Explore Dutch morphological families and their contexts of use in the CHAN-structicon.">
+    <title>Dutch — the CHAN-structicon</title>
+    <link rel="icon" type="image/svg+xml" sizes="any" href="../public/images/favicon.svg">
+    <link rel="stylesheet" href="../src/styles/main.css?v=dutch-1">
+    <script src="../src/data.js?v=dutch-1" defer></script>
+    <script src="../src/graph.js?v=dutch-1" defer></script>
+    <script src="../src/app.js?v=dutch-1" defer></script>
+  </head>
+  <body data-root=".." data-network="main" data-language="nl">
+    <header class="site-header"><h1><a href="../index.html">the CHAN-structicon</a></h1></header>
+    <main>
+      <section class="intro" aria-label="Network navigation">
+        <p id="network-description">Dutch · morphological families · nederdraad</p>
+        <nav id="network-links" aria-label="Site navigation"><a href="../about/index.html" data-about-link>about</a><a href="../index.html">languages</a></nav>
+      </section>
+      <section class="constructicon" aria-labelledby="network-title">
+        <div class="block-label">
+          <h2 id="network-title">dutch_constructicon</h2>
+          <p id="graph-status" role="status">loading the constructicon...</p>
+        </div>
+        <div class="graph-stage">
+          <canvas id="network-canvas" aria-label="Dutch morphological family network. Use the corpus search to select words with the keyboard." aria-describedby="graph-help"></canvas>
+          <div class="graph-controls" aria-label="Network controls">
+            <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+            <button type="button" id="fit-graph">FIT</button>
+            <button type="button" id="toggle-motion" aria-pressed="false">PAUSE MOTION</button>
+          </div>
+          <p id="node-tooltip" class="node-tooltip" hidden></p>
+        </div>
+        <p class="network-note" id="graph-help">words sit with their heads · dashed links connect to modifiers · click to explore · drag to pan · scroll to zoom</p>
+        <p id="data-note" class="data-note" hidden></p>
+      </section>
+      <aside class="network-sidebar" aria-label="Corpus search and context">
+        <section class="corpus" aria-labelledby="search-title">
+          <div class="block-label corpus-label">
+            <h2 id="search-title">search_the_corpus</h2>
+            <p>search by fragment, not only by whole word.</p>
+          </div>
+          <div class="search-area">
+            <label for="term-search">WORD FRAGMENT</label>
+            <div class="search-control">
+              <input id="term-search" name="term" type="search" placeholder="draad" autocomplete="off" aria-describedby="data-status">
+              <button id="search-button" type="button">FIND</button>
+            </div>
+            <p id="data-status" class="status" role="status">loading corpus...</p>
+            <ul id="search-results" class="search-results" lang="nl" aria-label="Search results"></ul>
+            <button id="more-results" type="button" hidden>MORE WORDS</button>
+          </div>
+        </section>
+        <section class="context-window" aria-labelledby="context-title">
+          <div class="block-label">
+            <h2 id="context-title">context_window</h2>
+            <button id="clear-selection" type="button" aria-label="Clear selected node and comments" disabled>CLEAR</button>
+          </div>
+          <div class="post-body" tabindex="0" aria-label="Selected word and comments">
+            <h3 id="selected-word">No word selected</h3>
+            <p id="selection-path"></p>
+            <p id="post-status" role="status">Choose a node or a search result to read its original posts here. Selecting a node highlights its ancestors and descendants. Family nodes collect posts containing words from that family.</p>
+            <div id="comment-content" class="comment-content" lang="nl"></div>
+            <button id="more-posts" type="button" hidden>MORE POSTS</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+    <footer><span>CHAN-STRUCTICON · DUTCH</span><span>LPM</span></footer>
+  </body>
+</html>

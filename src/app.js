@@ -1,9 +1,12 @@
 const root = document.body.dataset.root;
 const isHome = document.body.dataset.network === "main";
 const language = document.body.dataset.language || "en";
-const networkId = isHome ? (language === "pt" ? "pt-main" : "main") : (new URLSearchParams(location.search).get("id") || "nword");
+const MAIN_NETWORK_BY_LANGUAGE = { en: "main", pt: "pt-main", nl: "nl-main" };
+const MAIN_PAGE_BY_ID = { main: "en/index.html", "pt-main": "pt/index.html", "nl-main": "nl/index.html" };
+const networkId = isHome ? (MAIN_NETWORK_BY_LANGUAGE[language] || `${language}-main`) : (new URLSearchParams(location.search).get("id") || "nword");
 const WORK_IN_PROGRESS = "Work in progress — the Portuguese corpus is not available yet. You can explore the network and search the word list; original comments will be added later.";
 let corpusAvailable = false;
+let corpusRoot = "data";
 const searchInput = document.querySelector("#term-search");
 const searchResults = document.querySelector("#search-results");
 const dataStatus = document.querySelector("#data-status");
@@ -36,11 +39,15 @@ function json(path) {
     cache.set(path, promise);
     // Bound cached post chunks during long browsing sessions.
     if (cache.size > 70) {
-      const oldestPost = [...cache.keys()].find(key => key.startsWith("data/posts/"));
+      const oldestPost = [...cache.keys()].find(key => /^data\/(?:[^/]+\/)?posts\//.test(key));
       if (oldestPost) cache.delete(oldestPost);
     }
   }
   return cache.get(path);
+}
+
+function foldTerm(value) {
+  return value.toLowerCase().replaceAll("ß", "ss");
 }
 
 function buildNodeTerms(data) {
@@ -61,23 +68,27 @@ function buildNodeTerms(data) {
       seen.add(id);
       const current = byId.get(id);
       if (!current) return;
-      if (["word", "neo", "center"].includes(current.type)) terms.add(current.label.toLowerCase());
+      if (["word", "neo", "center"].includes(current.type)) terms.add(foldTerm(current.label));
       for (const child of children.get(id) || []) visit(child);
     };
-    if (["word", "neo"].includes(node.type)) terms.add(node.label.toLowerCase());
+    if (["word", "neo"].includes(node.type)) terms.add(foldTerm(node.label));
     else visit(node.id);
-    if (!terms.size) terms.add(node.label.toLowerCase());
+    if (!terms.size) terms.add(foldTerm(node.label));
     wordsByNode.set(node.id, [...terms]);
   }
 }
 
-function highlight(text, terms) {
+function highlight(text, terms, forms) {
   const fragment = document.createDocumentFragment();
-  const selected = new Set(terms);
-  const tokens = /[a-z]+(?:['-][a-z]+)*/gi;
+  const selected = new Set();
+  for (const term of terms) {
+    selected.add(foldTerm(term));
+    for (const surface of forms?.[term] || []) selected.add(foldTerm(surface));
+  }
+  const tokens = /\p{L}+(?:['-]\p{L}+)*/giu;
   let offset = 0;
   for (const match of text.matchAll(tokens)) {
-    if (!selected.has(match[0].toLowerCase())) continue;
+    if (!selected.has(foldTerm(match[0]))) continue;
     fragment.append(document.createTextNode(text.slice(offset, match.index)));
     const mark = document.createElement("mark");
     mark.textContent = match[0];
@@ -95,7 +106,7 @@ async function appendPosts(version) {
   const terms = selectedTerms;
   try {
     const records = await Promise.all(batch.map(async ref => {
-      const chunk = await json(`data/posts/${Math.floor(ref / catalog.chunkSize)}.json`);
+      const chunk = await json(`${corpusRoot}/posts/${Math.floor(ref / catalog.chunkSize)}.json`);
       return chunk[ref % catalog.chunkSize];
     }));
     if (version !== requestId) return;
@@ -109,7 +120,7 @@ async function appendPosts(version) {
       context.className = "comment-meta";
       context.textContent = record.thread;
       const comment = document.createElement("p");
-      comment.append(highlight(record.comment, terms));
+      comment.append(highlight(record.comment, terms, record.forms));
       article.append(meta, context, comment);
       commentContent.append(article);
     }
@@ -158,7 +169,7 @@ async function showComments(label, terms, nodeId) {
   if (!corpusAvailable) return;
   try {
     const shards = [...new Set(terms.map(term => catalog.terms[term]?.shard).filter(shard => shard !== undefined))];
-    const indexes = new Map(await Promise.all(shards.map(async shard => [shard, await json(`data/index/${shard}.json`)])));
+    const indexes = new Map(await Promise.all(shards.map(async shard => [shard, await json(`${corpusRoot}/index/${shard}.json`)])));
     if (version !== requestId) return;
     const refs = new Set();
     for (const term of terms) {
@@ -177,7 +188,7 @@ async function showComments(label, terms, nodeId) {
 function runSearch(reset = true) {
   if (!ready) return;
   if (reset) resultLimit = 60;
-  const query = searchInput.value.trim().toLowerCase();
+  const query = foldTerm(searchInput.value.trim());
   searchResults.replaceChildren();
   moreResults.hidden = true;
   if (!query) {
@@ -194,7 +205,7 @@ function runSearch(reset = true) {
     button.type = "button";
     button.textContent = term;
     button.addEventListener("click", () => {
-      const node = graphData.nodes.find(node => ["word", "neo", "center"].includes(node.type) && node.label.toLowerCase() === term);
+      const node = graphData.nodes.find(node => ["word", "neo", "center"].includes(node.type) && foldTerm(node.label) === term);
       showComments(term, [term], node?.id);
     });
     item.append(button);
@@ -211,15 +222,16 @@ async function initialize() {
     const navigation = document.querySelector("#network-links");
     for (const network of networks.filter(item => (item.language || "en") === language)) {
       const link = document.createElement("a");
-      link.href = network.id === "main" ? `${root}/en/index.html` : network.id === "pt-main"
-        ? `${root}/pt/index.html` : `${root}/networks/index.html?id=${encodeURIComponent(network.id)}`;
-      link.textContent = ["main", "pt-main"].includes(network.id) ? "main network" : network.title.replaceAll("_", " ");
+      const mainPage = MAIN_PAGE_BY_ID[network.id];
+      link.href = mainPage ? `${root}/${mainPage}` : `${root}/networks/index.html?id=${encodeURIComponent(network.id)}`;
+      link.textContent = mainPage ? "main network" : network.title.replaceAll("_", " ");
       if (network.id === networkId) link.setAttribute("aria-current", "page");
       navigation.insertBefore(link, navigation.querySelector('[data-about-link]'));
     }
     const network = networks.find(item => item.id === networkId);
     if (!network || (network.language || "en") !== language) throw new Error("This network does not exist. Choose one of the networks above.");
     corpusAvailable = network.corpusAvailable !== false;
+    corpusRoot = network.corpus ? `data/${network.corpus}` : "data";
     document.querySelector("#network-title").textContent = network.title;
     const description = document.querySelector("#network-description");
     if (description) description.textContent = network.description;
@@ -241,11 +253,11 @@ async function initialize() {
       }
     );
     document.querySelector("#graph-status").textContent = `${graphData.nodes.length.toLocaleString("en")} nodes · ${graphData.edges.length.toLocaleString("en")} connections`;
-    catalog = corpusAvailable ? await json("data/catalog.json") : null;
+    catalog = corpusAvailable ? await json(`${corpusRoot}/catalog.json`) : null;
     const wordList = isHome ? (catalog?.searchTerms ?? graphData.searchTerms) : null;
     vocabulary = [...new Set(wordList ?? graphData.nodes
       .filter(node => ["word", "neo", "center"].includes(node.type))
-      .map(node => node.label.toLowerCase()))].sort((a, b) => a.localeCompare(b, language));
+      .map(node => foldTerm(node.label)))].sort((a, b) => a.localeCompare(b, language));
     if (!corpusAvailable) postStatus.textContent = WORK_IN_PROGRESS;
     if (graphData.provisional) {
       const note = document.querySelector("#data-note");

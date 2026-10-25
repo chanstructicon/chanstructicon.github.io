@@ -13,11 +13,12 @@
 .entry-mark { margin-bottom: clamp(1.5rem, 5vh, 3rem); }
 .entry-page h1 { font-size: clamp(2.4rem, 7.8vw, 7rem); line-height: 1.05; overflow-wrap: anywhere; }
 .entry-invitation { display: block; margin-bottom: .35em; font-size: .42em; letter-spacing: -.04em; font-weight: normal; }
-.language-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; width: min(100%, 680px); margin-top: clamp(2rem, 6vh, 4rem); }
+.language-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; width: min(100%, 960px); margin-top: clamp(2rem, 6vh, 4rem); }
 .language-choice { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem; border: var(--line); background: var(--blue); box-shadow: 6px 6px 0 var(--ink); color: var(--ink); font-size: clamp(1rem, 2.5vw, 1.5rem); font-weight: 900; text-decoration: none; }
-.language-choice:last-child { background: var(--pink); }
+.language-choice:nth-child(2) { background: var(--pink); }
+.language-choice:nth-child(3) { background: #fff; }
 .language-choice:hover, .language-choice:focus-visible { background: var(--acid); }
-@media (max-width: 480px) { .language-choices { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .language-choices { grid-template-columns: 1fr; } }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
