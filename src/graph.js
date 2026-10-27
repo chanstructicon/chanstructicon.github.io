@@ -5,6 +5,7 @@ class ConstructiconGraph {
     this.ctx = canvas.getContext("2d");
     this.display = data.display || { labels: data.hulls ? "all" : "families", fontSize: 14, motionAmplitude: 3, labelGap: 5 };
     this.nodes = data.nodes.map((node, index) => ({ ...node, phase: index * 2.399, dx: 0, dy: 0 }));
+    this.labelOrder = [...this.nodes].sort((a, b) => b.r - a.r);
     this.byId = new Map(this.nodes.map(node => [node.id, node]));
     this.edges = [];
     const edgeGroups = new Map();
@@ -115,8 +116,11 @@ class ConstructiconGraph {
     let result = null, distance = Infinity;
     const { x, y, scale } = this.camera;
     for (const node of this.nodes) {
-      const d = Math.hypot(point.x - ((node.x + node.dx) * scale + x), point.y - ((node.y + node.dy) * scale + y));
-      if (d <= Math.max(6, node.r * scale) && d < distance) {
+      const dx = point.x - ((node.x + node.dx) * scale + x);
+      const dy = point.y - ((node.y + node.dy) * scale + y);
+      const d = dx * dx + dy * dy;
+      const radius = Math.max(6, node.r * scale);
+      if (d <= radius * radius && d < distance) {
         result = node;
         distance = d;
       }
@@ -176,6 +180,7 @@ class ConstructiconGraph {
     const canvas = this.canvas;
     canvas.addEventListener("pointerdown", event => {
       if (event.button !== 0) return;
+      this.hoverPoint = null;
       this.drag = { ...this.point(event), start: this.point(event), moved: false, id: event.pointerId };
       canvas.setPointerCapture(event.pointerId);
     });
@@ -190,11 +195,8 @@ class ConstructiconGraph {
         this.drag.x = point.x;
         this.drag.y = point.y;
       } else {
-        this.hovered = this.hit(point);
-        const tooltip = document.querySelector("#node-tooltip");
-        tooltip.hidden = !this.hovered;
-        tooltip.textContent = this.hovered?.label || "";
-        canvas.style.cursor = this.hovered ? "pointer" : "grab";
+        // Only hit-test the latest pointer position on the next display frame.
+        this.hoverPoint = point;
       }
       this.restart();
     });
@@ -219,6 +221,7 @@ class ConstructiconGraph {
     canvas.addEventListener("pointercancel", () => { this.drag = null; });
     canvas.addEventListener("lostpointercapture", () => { this.drag = null; });
     canvas.addEventListener("pointerleave", () => {
+      this.hoverPoint = null;
       this.hovered = null;
       document.querySelector("#node-tooltip").hidden = true;
       this.restart();
@@ -245,26 +248,54 @@ class ConstructiconGraph {
   }
 
   restart() {
-    if (this.frame) cancelAnimationFrame(this.frame);
-    this.frame = null;
-    if (document.hidden || !this.visible) return;
-    this.draw(performance.now());
-    if (!this.paused) this.frame = requestAnimationFrame(time => this.tick(time));
+    // Input can arrive several times per display frame. Keep its latest state
+    // and share one scheduled paint with the animation, including while paused.
+    this.dirty = true;
+    if (document.hidden || !this.visible) {
+      if (this.frame !== null) cancelAnimationFrame(this.frame);
+      this.frame = null;
+      return;
+    }
+    if (this.frame === null) this.frame = requestAnimationFrame(time => this.tick(time));
   }
 
   tick(time) {
     this.frame = null;
-    if (document.hidden || !this.visible || this.paused) return;
-    if (!this.lastDraw || time - this.lastDraw > (this.display.motionFrameInterval ?? 32)) {
+    if (document.hidden || !this.visible) return;
+    if (this.hoverPoint) {
+      const hovered = this.hit(this.hoverPoint);
+      this.hoverPoint = null;
+      if (hovered !== this.hovered) {
+        this.hovered = hovered;
+        const tooltip = document.querySelector("#node-tooltip");
+        tooltip.hidden = !hovered;
+        tooltip.textContent = hovered?.label || "";
+        this.canvas.style.cursor = hovered ? "pointer" : "grab";
+      }
+    }
+    if (this.dirty || (!this.paused &&
+        (this.lastDraw == null || time - this.lastDraw >= (this.display.motionFrameInterval ?? 0)))) {
       this.draw(time);
       this.lastDraw = time;
+      this.dirty = false;
     }
-    this.frame = requestAnimationFrame(next => this.tick(next));
+    if (!this.paused) this.frame = requestAnimationFrame(next => this.tick(next));
   }
 
   draw(time) {
     const ctx = this.ctx;
     const { x, y, scale } = this.camera;
+    // Conservative world-space clipping retains links crossing the viewport
+    // even when both endpoints are outside, plus room for stroke widths.
+    const padding = Math.max(3 / scale, (this.display.edgeWidth ?? 0) / 2,
+      (this.display.secondaryEdgeWidth ?? .45) / 2, .325);
+    const left = -x / scale - padding, right = (this.width - x) / scale + padding;
+    const top = -y / scale - padding, bottom = (this.height - y) / scale + padding;
+    const edgeVisible = (a, b) => !(
+      (a.x + a.dx < left && b.x + b.dx < left) ||
+      (a.x + a.dx > right && b.x + b.dx > right) ||
+      (a.y + a.dy < top && b.y + b.dy < top) ||
+      (a.y + a.dy > bottom && b.y + b.dy > bottom));
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
     ctx.translate(x, y);
@@ -285,6 +316,8 @@ class ConstructiconGraph {
       ctx.fill();
     }
     for (const region of this.familyRegions || []) {
+      if (region.x + region.r < left || region.x - region.r > right ||
+          region.y + region.r < top || region.y - region.r > bottom) continue;
       ctx.beginPath();
       ctx.arc(region.x, region.y, region.r, 0, Math.PI * 2);
       ctx.fillStyle = region.color;
@@ -300,9 +333,13 @@ class ConstructiconGraph {
       ctx.globalAlpha = (secondary ? (this.display.secondaryEdgeAlpha ?? .15) : (this.display.edgeAlpha ?? .17)) * (this.selected ? .45 : 1);
       ctx.strokeStyle = group.kind === "default" ? "#383838" : group.color;
       ctx.lineWidth = secondary ? (this.display.secondaryEdgeWidth ?? .45) : (this.display.edgeWidth ?? .65 / scale);
-      ctx.setLineDash(secondary ? [3, 3] : []);
+      // Keep dashes readable at overview scale instead of rasterizing thousands
+      // of subpixel segments. At closer zoom the original world-space pattern wins.
+      const dash = Math.max(3, 1.5 / scale);
+      ctx.setLineDash(secondary ? [dash, dash] : []);
       ctx.beginPath();
       for (const [a, b] of group.edges) {
+        if (!edgeVisible(a, b)) continue;
         ctx.moveTo(a.x + a.dx, a.y + a.dy);
         ctx.lineTo(b.x + b.dx, b.y + b.dy);
       }
@@ -316,19 +353,20 @@ class ConstructiconGraph {
       ctx.lineWidth = 2.5 / scale;
       ctx.beginPath();
       for (const [a, b] of this.highlightedEdges) {
+        if (!edgeVisible(a, b)) continue;
         ctx.moveTo(a.x + a.dx, a.y + a.dy);
         ctx.lineTo(b.x + b.dx, b.y + b.dy);
       }
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
-    const visible = [];
+    const visible = new Set();
     for (const node of this.nodes) {
       const px = (node.x + node.dx) * scale + x;
       const py = (node.y + node.dy) * scale + y;
       const padding = Math.max(50, node.r * scale);
       if (px < -padding || px > this.width + padding || py < -padding || py > this.height + padding) continue;
-      visible.push(node);
+      visible.add(node);
       const related = this.highlightedNodes.has(node.id);
       ctx.globalAlpha = related ? 1 : ["base", "center"].includes(node.type)
         ? (this.display.baseAlpha ?? .95) : (this.display.wordAlpha ?? .68);
@@ -349,8 +387,12 @@ class ConstructiconGraph {
     ctx.textAlign = "center";
     let labels = 0;
     const labelBoxes = [];
-    const rank = node => this.highlightedNodes.has(node.id) || node === this.hovered ? 1e6 : node.r;
-    for (const node of visible.sort((a, b) => rank(b) - rank(a))) {
+    const isActive = node => this.highlightedNodes.has(node.id) || node === this.hovered;
+    const labelNodes = [...visible].filter(isActive);
+    for (const node of this.labelOrder) {
+      if (visible.has(node) && !isActive(node)) labelNodes.push(node);
+    }
+    for (const node of labelNodes) {
       const important = !["word", "neo"].includes(node.type);
       const active = this.highlightedNodes.has(node.id) || node === this.hovered;
       const persistent = this.display.labels === "all" || important;
@@ -362,7 +404,12 @@ class ConstructiconGraph {
         : persistent ? this.display.fontSize : 11 / scale;
       ctx.textBaseline = centered ? "middle" : "alphabetic";
       ctx.font = `${this.display.labelWeight || (important ? "bold" : "normal")} ${fontSize}px ${this.display.fontFamily || '"Courier New", monospace'}`;
-      const width = ctx.measureText(node.label).width * scale;
+      // Keep one measurement per node; camera movement does not change it.
+      if (node.labelFont !== ctx.font) {
+        node.labelFont = ctx.font;
+        node.labelWidth = ctx.measureText(node.label).width;
+      }
+      const width = node.labelWidth * scale;
       const labelX = (node.x + node.dx) * scale + x;
       const textY = node.y + node.dy - (centered ? 0 : node.r + this.display.labelGap);
       const labelY = textY * scale + y;
