@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Specific networks — the CHAN-structicon</title>
     <link rel="icon" type="image/svg+xml" sizes="any" href="../public/images/favicon.svg">
-    <link rel="stylesheet" href="../src/styles/main.css?v=smooth-1">
-    <script src="../src/data.js?v=smooth-1" defer></script>
-    <script src="../src/graph.js?v=smooth-1" defer></script>
-    <script src="../src/app.js?v=smooth-1" defer></script>
+    <link rel="stylesheet" href="../src/styles/main.css?v=network-beige-1">
+    <script src="../src/data.js?v=network-beige-1" defer></script>
+    <script src="../src/graph.js?v=network-beige-1" defer></script>
+    <script src="../src/app.js?v=network-beige-1" defer></script>
   </head>
   <body data-root=".." data-network="specific">
     <header class="site-header"><h1><a href="../en/index.html">the CHAN-structicon</a></h1></header>
@@ -29,6 +29,7 @@
             <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
             <button type="button" id="fit-graph">FIT</button>
             <button type="button" id="toggle-motion" aria-pressed="false">PAUSE MOTION</button>
+            <button type="button" id="show-word-list" aria-haspopup="dialog" aria-controls="word-list-dialog" disabled>LIST</button>
           </div>
           <p id="node-tooltip" class="node-tooltip" hidden></p>
         </div>
@@ -67,6 +68,17 @@
       </section>
       </aside>
     </main>
+    <dialog id="word-list-dialog" class="word-list-dialog" aria-labelledby="word-list-title" aria-describedby="word-list-count">
+      <div class="word-list-header">
+        <h2 id="word-list-title">WORD LIST</h2>
+        <form method="dialog"><button type="submit" autofocus>CLOSE</button></form>
+      </div>
+      <p id="word-list-count" class="word-list-count"></p>
+      <div class="word-list-body" tabindex="0" aria-label="Alphabetical child word list">
+        <ul id="word-list"></ul>
+      </div>
+    </dialog>
+
     <footer><span>CHAN-STRUCTICON</span><span>language is made by use</span></footer>
   </body>
 </html>

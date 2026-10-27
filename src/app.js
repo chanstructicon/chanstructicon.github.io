@@ -16,6 +16,8 @@ const postStatus = document.querySelector("#post-status");
 const commentContent = document.querySelector("#comment-content");
 const morePosts = document.querySelector("#more-posts");
 const moreResults = document.querySelector("#more-results");
+const wordListButton = document.querySelector("#show-word-list");
+const wordListDialog = document.querySelector("#word-list-dialog");
 const cache = new Map();
 let catalog;
 let graph;
@@ -48,6 +50,22 @@ function json(path) {
 
 function foldTerm(value) {
   return value.toLowerCase().replaceAll("ß", "ss");
+}
+
+function populateWordList(title) {
+  const words = [...new Set(graphData.nodes
+    .filter(node => ["word", "neo"].includes(node.type) && !graph.childEdges.get(node.id)?.length)
+    .map(node => node.label))].sort((a, b) => a.localeCompare(b, language));
+  const items = document.createDocumentFragment();
+  for (const word of words) {
+    const item = document.createElement("li");
+    item.textContent = word;
+    items.append(item);
+  }
+  document.querySelector("#word-list").replaceChildren(items);
+  document.querySelector("#word-list-title").textContent = `${title.replaceAll("_", " ")} · WORD LIST`;
+  document.querySelector("#word-list-count").textContent = `${words.length.toLocaleString(language)} child words · alphabetical order`;
+  wordListButton.disabled = false;
 }
 
 function buildNodeTerms(data) {
@@ -253,6 +271,7 @@ async function initialize() {
       }
     );
     document.querySelector("#graph-status").textContent = `${graphData.nodes.length.toLocaleString("en")} nodes · ${graphData.edges.length.toLocaleString("en")} connections`;
+    populateWordList(network.title);
     catalog = corpusAvailable ? await json(`${corpusRoot}/catalog.json`) : null;
     const wordList = isHome ? (catalog?.searchTerms ?? graphData.searchTerms) : null;
     vocabulary = [...new Set(wordList ?? graphData.nodes
@@ -279,6 +298,18 @@ async function initialize() {
     console.error(error);
   }
 }
+
+wordListButton.addEventListener("click", () => {
+  wordListDialog.showModal();
+  wordListDialog.querySelector(".word-list-body").scrollTop = 0;
+});
+wordListDialog.addEventListener("click", event => {
+  if (event.target !== wordListDialog) return;
+  const bounds = wordListDialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) {
+    wordListDialog.close();
+  }
+});
 
 document.querySelector("#search-button").addEventListener("click", () => runSearch());
 searchInput.addEventListener("input", () => runSearch());
