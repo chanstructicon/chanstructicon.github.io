@@ -238,7 +238,9 @@ async function initialize() {
   try {
     const networks = await json("data/networks.json");
     const navigation = document.querySelector("#network-links");
-    for (const network of networks.filter(item => (item.language || "en") === language)) {
+    const languageNetworks = networks.filter(item => (item.language || "en") === language);
+    for (const network of languageNetworks) {
+      if (languageNetworks.length === 1) continue;
       const link = document.createElement("a");
       const mainPage = MAIN_PAGE_BY_ID[network.id];
       link.href = mainPage ? `${root}/${mainPage}` : `${root}/networks/index.html?id=${encodeURIComponent(network.id)}`;
