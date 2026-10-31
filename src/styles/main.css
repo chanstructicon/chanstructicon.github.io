@@ -296,6 +296,43 @@ a { color: inherit; }
 .site-header a { text-decoration: none; }
 #network-links { display: flex; flex-wrap: wrap; gap: .5rem 1rem; }
 #network-links a[aria-current="page"] { text-decoration-thickness: 3px; }
+body.about-compact .site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1.25rem;
+}
+body.about-compact #network-links {
+  align-items: center;
+  gap: .35rem;
+  margin-left: auto;
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+body.about-compact #network-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.65rem;
+  padding: .2rem .5rem;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.3;
+  text-decoration: none;
+}
+body.about-compact #network-links .site-nav-link { font-weight: 900; }
+body.about-compact #network-links .site-nav-link[aria-current="page"] {
+  background: var(--ink);
+  color: var(--acid);
+}
+body.about-compact #network-links a:hover,
+body.about-compact #network-links a:focus-visible {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--acid);
+}
 .graph-stage { position: relative; height: clamp(520px, 72vh, 900px); }
 #network-canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 .graph-controls { position: absolute; top: .65rem; left: .65rem; display: flex; flex-wrap: wrap; gap: .35rem; }
@@ -406,10 +443,24 @@ a.about-return:hover, a.about-return:focus-visible { background: var(--ink); col
 .about-compact .about-overview .about-copy p { margin-bottom: 0; }
 .about-compact .about-corpus .about-copy { display: flex; flex-direction: column; }
 .about-compact .about-corpus strong { font-size: clamp(1rem, 1.3vw, 1.25rem); }
-.about-compact .about-corpus .about-return { margin-top: .25rem; padding: .65rem .8rem; font-size: .85rem; }
+.about-compact .about-corpus .about-return { margin-top: .25rem; }
+.about-compact .about-return,
+.about-compact .contact-profiles a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.2rem;
+  padding: .4rem .65rem;
+  border-width: 2px;
+  font-size: .72rem;
+}
+.about-compact .about-corpus .about-return { padding: .4rem .65rem; font-size: .72rem; }
 .about-compact .contact-email { font-size: clamp(1rem, 1.5vw, 1.5rem); }
 .about-compact .contact-profiles { gap: .5rem; }
-.about-compact .contact-profiles a { padding: .5rem .65rem; font-size: .8rem; }
+.about-compact .contact-profiles a { background: var(--acid); }
+@media (max-width: 720px) {
+  body.about-compact #network-links { margin-left: 0; }
+}
 @media (min-width: 721px) and (max-width: 999px) {
   .about-compact .about-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .about-stack-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
