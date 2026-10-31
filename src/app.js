@@ -8,6 +8,7 @@ const WORK_IN_PROGRESS = "Work in progress — the Portuguese corpus is not avai
 let corpusAvailable = false;
 let corpusRoot = "data";
 const searchInput = document.querySelector("#term-search");
+const clearSearchButton = document.querySelector("#clear-search");
 const searchResults = document.querySelector("#search-results");
 const dataStatus = document.querySelector("#data-status");
 const contextPanel = document.querySelector(".context-window");
@@ -15,6 +16,10 @@ const clearSelectionButton = document.querySelector("#clear-selection");
 const postStatus = document.querySelector("#post-status");
 const commentContent = document.querySelector("#comment-content");
 const morePosts = document.querySelector("#more-posts");
+const postBody = document.querySelector(".context-window .post-body");
+const expandContextButton = document.querySelector("#expand-context");
+const contextDialog = document.querySelector("#context-dialog");
+const contextDialogContent = document.querySelector("#context-dialog-content");
 const moreResults = document.querySelector("#more-results");
 const wordListButton = document.querySelector("#show-word-list");
 const wordListDialog = document.querySelector("#word-list-dialog");
@@ -30,6 +35,7 @@ let postRefs = [];
 let postOffset = 0;
 let resultLimit = 60;
 let wordsByNode = new Map();
+let hasSelectedContextWord = false;
 const POST_PAGE_SIZE = 25;
 
 function json(path) {
@@ -158,7 +164,7 @@ async function appendPosts(version) {
   }
 }
 
-async function showComments(label, terms, nodeId) {
+async function showComments(label, terms, nodeId, preserveSearchResults = false) {
   if (!ready) return;
   const version = ++requestId;
   selectedTerms = terms;
@@ -170,9 +176,24 @@ async function showComments(label, terms, nodeId) {
   morePosts.hidden = true;
   morePosts.textContent = "MORE POSTS";
   graph.select(nodeId);
+  hasSelectedContextWord = true;
+  expandContextButton.disabled = false;
+  const children = nodeId != null ? graph.childEdges.get(nodeId) || [] : [];
+  const selectionResults = children.length
+    ? children.map(({ child }) => child.label)
+    : [label];
+  if (preserveSearchResults) {
+    updateSearchSelection(label);
+    dataStatus.textContent = `Selected word: ${label}`;
+  } else {
+    renderSearchResults(selectionResults, children.length ? null : label);
+    dataStatus.textContent = children.length
+      ? `${selectionResults.length.toLocaleString(language)} child nodes of ${label} · select a word to read its comments.`
+      : `Selected word: ${label}`;
+  }
   if (contextPanel) {
     clearSelectionButton.disabled = false;
-    contextPanel.querySelector(".post-body").scrollTop = 0;
+    postBody.scrollTop = 0;
     const parents = (graph.parentEdges.get(nodeId) || []).map(({ parent }) => parent.label);
     document.querySelector("#selection-path").textContent = parents.length
       ? `Parent${parents.length === 1 ? "" : "s"}: ${parents.join(" · ")} · path to root highlighted`
@@ -203,12 +224,48 @@ async function showComments(label, terms, nodeId) {
   }
 }
 
+function updateSearchSelection(selectedTerm) {
+  for (const button of searchResults.querySelectorAll(".result-button")) {
+    const isSelected = foldTerm(button.textContent) === foldTerm(selectedTerm);
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  }
+}
+
+function updateSearchClearButton() {
+  clearSearchButton.disabled = !searchInput.value.trim() && searchResults.childElementCount === 0;
+}
+
+function renderSearchResults(terms, selectedTerm = null) {
+  searchResults.replaceChildren();
+  moreResults.hidden = true;
+  for (const term of terms) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.className = "result-button";
+    button.type = "button";
+    button.textContent = term;
+    const isSelected = selectedTerm !== null && foldTerm(term) === foldTerm(selectedTerm);
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+    button.addEventListener("click", () => {
+      const foldedTerm = foldTerm(term);
+      const node = graphData.nodes.find(candidate => foldTerm(candidate.label) === foldedTerm);
+      showComments(term, wordsByNode.get(node?.id) || [foldedTerm], node?.id, true);
+    });
+    item.append(button);
+    searchResults.append(item);
+  }
+  updateSearchClearButton();
+}
+
 function runSearch(reset = true) {
   if (!ready) return;
   if (reset) resultLimit = 60;
   const query = foldTerm(searchInput.value.trim());
   searchResults.replaceChildren();
   moreResults.hidden = true;
+  updateSearchClearButton();
   if (!query) {
     dataStatus.textContent = `${vocabulary.length.toLocaleString("en")} words · type any word fragment.`;
     return;
@@ -216,19 +273,7 @@ function runSearch(reset = true) {
   const matches = vocabulary.filter(word => word.includes(query));
   const shown = matches.slice(0, resultLimit);
   dataStatus.textContent = `${matches.length.toLocaleString("en")} matches · showing ${shown.length.toLocaleString("en")}`;
-  for (const term of shown) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.className = "result-button";
-    button.type = "button";
-    button.textContent = term;
-    button.addEventListener("click", () => {
-      const node = graphData.nodes.find(node => ["word", "neo", "center"].includes(node.type) && foldTerm(node.label) === term);
-      showComments(term, [term], node?.id);
-    });
-    item.append(button);
-    searchResults.append(item);
-  }
+  renderSearchResults(shown);
   moreResults.hidden = shown.length >= matches.length;
 }
 
@@ -312,10 +357,32 @@ wordListDialog.addEventListener("click", event => {
     wordListDialog.close();
   }
 });
+expandContextButton.addEventListener("click", () => {
+  if (!hasSelectedContextWord || expandContextButton.disabled) return;
+  contextDialogContent.append(postBody);
+  contextDialog.showModal();
+  postBody.focus();
+});
+contextDialog.addEventListener("close", () => {
+  contextPanel.append(postBody);
+  expandContextButton.focus();
+});
+contextDialog.addEventListener("click", event => {
+  if (event.target !== contextDialog) return;
+  const bounds = contextDialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) {
+    contextDialog.close();
+  }
+});
 
 document.querySelector("#search-button").addEventListener("click", () => runSearch());
 searchInput.addEventListener("input", () => runSearch());
 searchInput.addEventListener("keydown", event => { if (event.key === "Enter") runSearch(); });
+clearSearchButton.addEventListener("click", () => {
+  searchInput.value = "";
+  runSearch();
+  searchInput.focus();
+});
 moreResults.addEventListener("click", () => { resultLimit += 60; runSearch(false); });
 morePosts.addEventListener("click", () => appendPosts(requestId));
 clearSelectionButton?.addEventListener("click", () => {
@@ -329,7 +396,10 @@ clearSelectionButton?.addEventListener("click", () => {
   document.querySelector("#selection-path").textContent = "";
   postStatus.textContent = corpusAvailable ? "Choose a node or a search result to read its original posts here." : WORK_IN_PROGRESS;
   graph?.select(null);
-  contextPanel.querySelector(".post-body").scrollTop = 0;
+  postBody.scrollTop = 0;
   clearSelectionButton.disabled = true;
+  hasSelectedContextWord = false;
+  expandContextButton.disabled = true;
+  runSearch();
 });
 initialize();
