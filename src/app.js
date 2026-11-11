@@ -23,6 +23,11 @@ const contextDialogContent = document.querySelector("#context-dialog-content");
 const moreResults = document.querySelector("#more-results");
 const wordListButton = document.querySelector("#show-word-list");
 const wordListDialog = document.querySelector("#word-list-dialog");
+const networkPanel = document.querySelector(".constructicon");
+const expandNetworkButton = document.querySelector("#expand-network");
+const networkDialog = document.querySelector("#network-dialog");
+const networkPlaceholder = document.createComment("Network window position");
+let networkScrollPosition;
 const cache = new Map();
 let catalog;
 let graph;
@@ -201,7 +206,7 @@ async function showComments(label, terms, nodeId, preserveSearchResults = false)
     if (graph.childEdges.get(nodeId)?.length) {
       document.querySelector("#selection-path").textContent += " · all descendants highlighted";
     }
-    if (matchMedia("(max-width: 899px)").matches) {
+    if (!networkDialog.open && matchMedia("(max-width: 899px)").matches) {
       contextPanel.scrollIntoView({ block: "start", behavior: "instant" });
     }
   }
@@ -345,6 +350,33 @@ async function initialize() {
     console.error(error);
   }
 }
+
+expandNetworkButton.addEventListener("click", () => {
+  if (networkDialog.open) {
+    networkDialog.close();
+    return;
+  }
+  networkScrollPosition = { left: window.scrollX, top: window.scrollY, behavior: "instant" };
+  networkPanel.replaceWith(networkPlaceholder);
+  networkDialog.append(networkPanel);
+  document.documentElement.classList.add("network-expanded");
+  expandNetworkButton.textContent = "⤡";
+  expandNetworkButton.setAttribute("aria-expanded", "true");
+  expandNetworkButton.setAttribute("aria-label", "Restore network window");
+  expandNetworkButton.title = "Restore network window (Esc)";
+  networkDialog.showModal();
+  expandNetworkButton.focus();
+});
+networkDialog.addEventListener("close", () => {
+  networkPlaceholder.replaceWith(networkPanel);
+  document.documentElement.classList.remove("network-expanded");
+  expandNetworkButton.textContent = "⤢";
+  expandNetworkButton.setAttribute("aria-expanded", "false");
+  expandNetworkButton.setAttribute("aria-label", "Expand network window");
+  expandNetworkButton.title = "Expand network window";
+  expandNetworkButton.focus({ preventScroll: true });
+  window.scrollTo(networkScrollPosition);
+});
 
 wordListButton.addEventListener("click", () => {
   wordListDialog.showModal();

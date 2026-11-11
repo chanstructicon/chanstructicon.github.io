@@ -520,7 +520,17 @@ a.about-return:hover, a.about-return:focus-visible { background: var(--ink); col
 .context-window .block-label { flex-direction: row; align-items: center; flex-shrink: 0; }
 .context-actions { display: flex; flex-shrink: 0; gap: .35rem; }
 .context-actions button { min-height: 1.8rem; margin: 0; padding: .3rem .4rem; font-size: .65rem; border-width: 2px; }
-#expand-context { width: 1.8rem; padding: .1rem; font-size: 1.1rem; line-height: 1; }
+.constructicon > .block-label { flex-direction: row; align-items: center; }
+.constructicon > .block-label h2 { min-width: 0; overflow-wrap: anywhere; }
+.network-actions { display: flex; align-items: center; justify-content: flex-end; gap: .65rem; }
+#expand-network, #expand-context { flex-shrink: 0; width: 1.8rem; min-height: 1.8rem; margin: 0; padding: .1rem; border-width: 2px; font-size: 1.1rem; line-height: 1; }
+html.network-expanded { overflow: hidden; }
+.network-dialog { position: fixed; inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
+.network-dialog::backdrop { background: var(--paper); }
+body[data-network] .network-dialog > .constructicon { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; margin: 0; box-shadow: none; }
+.network-dialog .graph-stage { flex: 1; min-height: 0; height: auto; }
+.network-dialog #network-canvas { position: absolute; inset: 0; }
+.network-dialog .block-label, .network-dialog .network-note, .network-dialog .data-note { flex-shrink: 0; }
 #expand-context:disabled { cursor: default; opacity: .5; background: var(--acid); color: var(--ink); }
 .context-window .post-body { min-height: 0; max-height: 65svh; overflow-y: auto; overscroll-behavior: contain; }
 .context-window .post-body:focus-visible { outline-offset: -3px; }
